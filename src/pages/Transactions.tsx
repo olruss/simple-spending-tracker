@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { MARKS, TransactionMark } from '@/types/expense';
 
 export default function Transactions() {
-  const { transactions, categories, addTransaction } = useExpenses();
+  const { transactions, categories, accounts, addTransaction } = useExpenses();
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
 
@@ -31,7 +33,7 @@ export default function Transactions() {
           <h1 className="text-2xl font-semibold">Transactions</h1>
           <div className="flex gap-2">
             <CSVUploadDialog />
-            <AddTransactionDialog categories={categories} onAdd={addTransaction} />
+            <AddTransactionDialog categories={categories} accounts={accounts} onAdd={addTransaction} />
           </div>
         </div>
 
@@ -63,26 +65,34 @@ export default function Transactions() {
   );
 }
 
-function AddTransactionDialog({ categories, onAdd }: {
+function AddTransactionDialog({ categories, accounts, onAdd }: {
   categories: { id: string; name: string; parentId: string | null }[];
-  onAdd: (t: { date: string; description: string; amount: number; categoryId: string }) => void;
+  accounts: { id: string; name: string; lastFour: string; type: string }[];
+  onAdd: (t: any) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), description: '', amount: '', categoryId: '' });
+  const [form, setForm] = useState({
+    date: new Date().toISOString().slice(0, 10), description: '', amount: '',
+    isIncome: false, categoryId: '', accountId: '', note: '', mark: '',
+  });
 
   const handleSave = () => {
     if (!form.description.trim() || !form.amount || !form.categoryId) {
-      toast.error('Please fill all fields');
+      toast.error('Please fill all required fields');
       return;
     }
+    const amount = parseFloat(form.amount) * (form.isIncome ? -1 : 1);
     onAdd({
       date: form.date,
       description: form.description.trim(),
-      amount: parseFloat(form.amount),
+      amount,
       categoryId: form.categoryId,
+      accountId: form.accountId || undefined,
+      note: form.note.trim() || undefined,
+      mark: (form.mark as TransactionMark) || undefined,
     });
     toast.success('Transaction added');
-    setForm({ date: new Date().toISOString().slice(0, 10), description: '', amount: '', categoryId: '' });
+    setForm({ date: new Date().toISOString().slice(0, 10), description: '', amount: '', isIncome: false, categoryId: '', accountId: '', note: '', mark: '' });
     setOpen(false);
   };
 
@@ -107,9 +117,22 @@ function AddTransactionDialog({ categories, onAdd }: {
             <Label className="text-xs">Description</Label>
             <Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Coffee at Blue Bottle" className="h-9" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Amount ($)</Label>
-            <Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="12.50" min={0} step={0.01} className="h-9 font-mono-num" />
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Amount ($)</Label>
+              <Input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="12.50" min={0} step={0.01} className="h-9 font-mono-num" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type</Label>
+              <select
+                className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={form.isIncome ? 'income' : 'expense'}
+                onChange={e => setForm(p => ({ ...p, isIncome: e.target.value === 'income' }))}
+              >
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Category</Label>
@@ -123,6 +146,38 @@ function AddTransactionDialog({ categories, onAdd }: {
                 <option key={c.id} value={c.id}>{c.parentId ? '  · ' : ''}{c.name}</option>
               ))}
             </select>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Account</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.accountId}
+                onChange={e => setForm(p => ({ ...p, accountId: e.target.value }))}
+              >
+                <option value="">None</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name} ··{a.lastFour}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Mark</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.mark}
+                onChange={e => setForm(p => ({ ...p, mark: e.target.value }))}
+              >
+                <option value="">None</option>
+                {MARKS.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Note</Label>
+            <Textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="Optional note..." className="min-h-[50px] text-sm" />
           </div>
           <Button onClick={handleSave} className="w-full">Add Transaction</Button>
         </div>
