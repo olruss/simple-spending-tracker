@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useExpenses } from '@/context/ExpenseContext';
-import { Transaction, MARKS } from '@/types/expense';
-import { Trash2, Split, ChevronDown, ChevronRight, Pencil, CreditCard, Landmark, PiggyBank, StickyNote } from 'lucide-react';
+import { Transaction, MARKS, TransactionMark } from '@/types/expense';
+import { Trash2, Split, ChevronDown, ChevronRight, Pencil, CreditCard, Landmark, PiggyBank, StickyNote, Star, Paperclip, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,7 +15,7 @@ const accountIcons = {
 };
 
 export default function TransactionList({ transactions: txs }: { transactions?: Transaction[] }) {
-  const { transactions: allTxs, getCategoryById, getAccountById, deleteTransaction } = useExpenses();
+  const { transactions: allTxs, getCategoryById, getAccountById, deleteTransaction, toggleStar } = useExpenses();
   const transactions = txs || allTxs;
   const [splitTarget, setSplitTarget] = useState<{ id: string; amount: number } | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
@@ -52,6 +52,7 @@ export default function TransactionList({ transactions: txs }: { transactions?: 
             const isIncome = t.amount < 0;
             const markInfo = getMarkInfo(t.mark);
             const AccountIcon = account ? accountIcons[account.type] : null;
+            const isLinkedTransfer = !!t.linkedTransferId;
 
             return (
               <div key={t.id}>
@@ -61,7 +62,12 @@ export default function TransactionList({ transactions: txs }: { transactions?: 
                       {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
                   ) : (
-                    <div className="w-4" />
+                    <button
+                      onClick={() => toggleStar(t.id)}
+                      className={`transition-colors ${t.starred ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground/30 hover:text-[hsl(var(--warning))]'}`}
+                    >
+                      <Star className="h-4 w-4" fill={t.starred ? 'currentColor' : 'none'} />
+                    </button>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -73,6 +79,26 @@ export default function TransactionList({ transactions: txs }: { transactions?: 
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs">
                             <p className="text-xs">{t.note}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {t.receiptUrl && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Paperclip className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">Receipt attached</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {isLinkedTransfer && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Link2 className="h-3 w-3 text-[hsl(var(--chart-4))]" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">Linked transfer</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
@@ -100,28 +126,13 @@ export default function TransactionList({ transactions: txs }: { transactions?: 
                     {isIncome ? '+' : ''}${Math.abs(t.amount).toFixed(2)}
                   </span>
                   <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setEditTarget(t)}
-                      title="Edit"
-                    >
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditTarget(t)} title="Edit">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setSplitTarget({ id: t.id, amount: t.amount })}
-                      title="Split"
-                    >
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSplitTarget({ id: t.id, amount: t.amount })} title="Split">
                       <Split className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost" size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteTransaction(t.id)}
-                      title="Delete"
-                    >
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteTransaction(t.id)} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

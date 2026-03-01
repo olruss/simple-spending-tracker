@@ -10,8 +10,16 @@ const CHART_COLORS = [
   'hsl(var(--chart-7))', 'hsl(var(--chart-8))',
 ];
 
-export default function CategoryPieChart() {
-  const { transactions, categories, getParentCategories, getChildCategories } = useExpenses();
+import { TransactionMark } from '@/types/expense';
+
+export default function CategoryPieChart({ filterMark }: { filterMark?: TransactionMark | null }) {
+  const { transactions: allTransactions, categories, getParentCategories, getChildCategories } = useExpenses();
+  
+  const transactions = useMemo(() => {
+    let txs = allTransactions.filter(t => !t.linkedTransferId && t.mark !== 'adjustment');
+    if (filterMark) txs = txs.filter(t => t.mark === filterMark);
+    return txs;
+  }, [allTransactions, filterMark]);
   const [drillParentId, setDrillParentId] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
 

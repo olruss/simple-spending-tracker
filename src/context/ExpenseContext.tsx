@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { Category, Transaction, TransactionSplit, Account, DEFAULT_ACCOUNTS } from '@/types/expense';
+import { Category, Transaction, TransactionSplit, Account, MonthlyNote, DEFAULT_ACCOUNTS } from '@/types/expense';
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 'income', name: 'Income', parentId: null, color: 'hsl(var(--success))' },
@@ -46,15 +46,27 @@ const SAMPLE_TRANSACTIONS: Transaction[] = [
   { id: '15', date: '2026-02-10', description: 'Spotify', amount: 9.99, categoryId: 'entertainment-streaming', accountId: 'chase-1234', mark: 'regular' },
   { id: '16', date: '2026-02-25', description: 'Salary - February', amount: -3500.00, categoryId: 'income-salary', accountId: 'wells-9012', mark: 'regular' },
   { id: '17', date: '2026-02-14', description: 'Freelance Project', amount: -800.00, categoryId: 'income-freelance', accountId: 'bofa-5678' },
-  { id: '18', date: '2026-01-25', description: 'Salary - January', amount: -3500.00, categoryId: 'income-salary', accountId: 'wells-9012', mark: 'regular' },
-  { id: '19', date: '2026-01-15', description: 'Groceries', amount: 95.20, categoryId: 'food-groceries', accountId: 'chase-1234', mark: 'living' },
-  { id: '20', date: '2026-01-10', description: 'Internet Bill', amount: 75.00, categoryId: 'housing-utilities', accountId: 'wells-9012', mark: 'regular' },
+  // Transfer pair example
+  { id: '18', date: '2026-02-10', description: 'Transfer to Savings', amount: 500.00, categoryId: 'other', accountId: 'wells-9012', mark: 'transfer', linkedTransferId: '19' },
+  { id: '19', date: '2026-02-10', description: 'Transfer from Checking', amount: -500.00, categoryId: 'other', accountId: 'bofa-5678', mark: 'transfer', linkedTransferId: '18' },
+  { id: '20', date: '2026-01-25', description: 'Salary - January', amount: -3500.00, categoryId: 'income-salary', accountId: 'wells-9012', mark: 'regular' },
+  { id: '21', date: '2026-01-15', description: 'Groceries', amount: 95.20, categoryId: 'food-groceries', accountId: 'chase-1234', mark: 'living' },
+  { id: '22', date: '2026-01-10', description: 'Internet Bill', amount: 75.00, categoryId: 'housing-utilities', accountId: 'wells-9012', mark: 'regular' },
+  { id: '23', date: '2025-12-25', description: 'Salary - December', amount: -3500.00, categoryId: 'income-salary', accountId: 'wells-9012', mark: 'regular' },
+  { id: '24', date: '2025-12-20', description: 'Holiday Shopping', amount: 320.00, categoryId: 'shopping-clothes', accountId: 'chase-1234', mark: 'planned' },
+  { id: '25', date: '2025-12-15', description: 'Groceries', amount: 110.00, categoryId: 'food-groceries', accountId: 'chase-1234', mark: 'living' },
+];
+
+const SAMPLE_NOTES: MonthlyNote[] = [
+  { id: 'n1', month: '2026-02', text: 'High spending month due to concert tickets and new headphones. Need to cut back on dining out.', createdAt: '2026-02-28' },
+  { id: 'n2', month: '2026-01', text: 'Good month overall. Kept groceries under budget.', createdAt: '2026-01-31' },
 ];
 
 interface ExpenseContextType {
   transactions: Transaction[];
   categories: Category[];
   accounts: Account[];
+  monthlyNotes: MonthlyNote[];
   addTransaction: (t: Omit<Transaction, 'id'>) => void;
   addTransactions: (txs: Omit<Transaction, 'id'>[]) => void;
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id'>>) => void;
@@ -66,6 +78,14 @@ interface ExpenseContextType {
   getChildCategories: (parentId: string) => Category[];
   getAccountById: (id: string) => Account | undefined;
   addCategory: (c: Omit<Category, 'id'>) => void;
+  toggleStar: (id: string) => void;
+  linkTransfer: (id1: string, id2: string) => void;
+  unlinkTransfer: (id: string) => void;
+  suggestTransferPairs: () => Array<[Transaction, Transaction]>;
+  addMonthlyNote: (month: string, text: string) => void;
+  updateMonthlyNote: (id: string, text: string) => void;
+  deleteMonthlyNote: (id: string) => void;
+  updateAccountBalance: (accountId: string, newBalance: number) => void;
 }
 
 const ExpenseContext = createContext<ExpenseContextType | null>(null);
@@ -73,7 +93,8 @@ const ExpenseContext = createContext<ExpenseContextType | null>(null);
 export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>(SAMPLE_TRANSACTIONS);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const accounts = DEFAULT_ACCOUNTS;
+  const [accounts, setAccounts] = useState<Account[]>(DEFAULT_ACCOUNTS);
+  const [monthlyNotes, setMonthlyNotes] = useState<MonthlyNote[]>(SAMPLE_NOTES);
 
   const addTransaction = useCallback((t: Omit<Transaction, 'id'>) => {
     setTransactions(prev => [{ ...t, id: crypto.randomUUID() }, ...prev]);
@@ -89,7 +110,16 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteTransaction = useCallback((id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+    setTransactions(prev => {
+      const target = prev.find(t => t.id === id);
+      // Unlink partner if linked
+      if (target?.linkedTransferId) {
+        return prev
+          .filter(t => t.id !== id)
+          .map(t => t.id === target.linkedTransferId ? { ...t, linkedTransferId: undefined } : t);
+      }
+      return prev.filter(t => t.id !== id);
+    });
   }, []);
 
   const splitTransaction = useCallback((id: string, splits: TransactionSplit[]) => {
@@ -100,33 +130,113 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, limit } : c));
   }, []);
 
-  const getCategoryById = useCallback((id: string) => {
-    return categories.find(c => c.id === id);
-  }, [categories]);
-
-  const getParentCategories = useCallback(() => {
-    return categories.filter(c => c.parentId === null);
-  }, [categories]);
-
-  const getChildCategories = useCallback((parentId: string) => {
-    return categories.filter(c => c.parentId === parentId);
-  }, [categories]);
-
-  const getAccountById = useCallback((id: string) => {
-    return accounts.find(a => a.id === id);
-  }, [accounts]);
+  const getCategoryById = useCallback((id: string) => categories.find(c => c.id === id), [categories]);
+  const getParentCategories = useCallback(() => categories.filter(c => c.parentId === null), [categories]);
+  const getChildCategories = useCallback((parentId: string) => categories.filter(c => c.parentId === parentId), [categories]);
+  const getAccountById = useCallback((id: string) => accounts.find(a => a.id === id), [accounts]);
 
   const addCategory = useCallback((c: Omit<Category, 'id'>) => {
     setCategories(prev => [...prev, { ...c, id: crypto.randomUUID() }]);
   }, []);
 
+  const toggleStar = useCallback((id: string) => {
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, starred: !t.starred } : t));
+  }, []);
+
+  const linkTransfer = useCallback((id1: string, id2: string) => {
+    setTransactions(prev => prev.map(t => {
+      if (t.id === id1) return { ...t, linkedTransferId: id2, mark: 'transfer' as const };
+      if (t.id === id2) return { ...t, linkedTransferId: id1, mark: 'transfer' as const };
+      return t;
+    }));
+  }, []);
+
+  const unlinkTransfer = useCallback((id: string) => {
+    setTransactions(prev => {
+      const target = prev.find(t => t.id === id);
+      if (!target?.linkedTransferId) return prev;
+      const partnerId = target.linkedTransferId;
+      return prev.map(t => {
+        if (t.id === id || t.id === partnerId) return { ...t, linkedTransferId: undefined, mark: undefined };
+        return t;
+      });
+    });
+  }, []);
+
+  const suggestTransferPairs = useCallback(() => {
+    const unlinked = transactions.filter(t => !t.linkedTransferId && t.accountId);
+    const pairs: Array<[Transaction, Transaction]> = [];
+    const used = new Set<string>();
+
+    for (let i = 0; i < unlinked.length; i++) {
+      if (used.has(unlinked[i].id)) continue;
+      for (let j = i + 1; j < unlinked.length; j++) {
+        if (used.has(unlinked[j].id)) continue;
+        const a = unlinked[i], b = unlinked[j];
+        // Same absolute amount, different accounts, opposite signs, within 3 days
+        if (
+          Math.abs(Math.abs(a.amount) - Math.abs(b.amount)) < 0.01 &&
+          a.accountId !== b.accountId &&
+          ((a.amount > 0 && b.amount < 0) || (a.amount < 0 && b.amount > 0))
+        ) {
+          const daysDiff = Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysDiff <= 3) {
+            pairs.push([a, b]);
+            used.add(a.id);
+            used.add(b.id);
+          }
+        }
+      }
+    }
+    return pairs;
+  }, [transactions]);
+
+  const addMonthlyNote = useCallback((month: string, text: string) => {
+    setMonthlyNotes(prev => [...prev, { id: crypto.randomUUID(), month, text, createdAt: new Date().toISOString().slice(0, 10) }]);
+  }, []);
+
+  const updateMonthlyNote = useCallback((id: string, text: string) => {
+    setMonthlyNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+  }, []);
+
+  const deleteMonthlyNote = useCallback((id: string) => {
+    setMonthlyNotes(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const updateAccountBalance = useCallback((accountId: string, newBalance: number) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+    const diff = newBalance - account.balance;
+    // Create adjustment transaction
+    const adjTx: Transaction = {
+      id: crypto.randomUUID(),
+      date: new Date().toISOString().slice(0, 10),
+      description: `Balance adjustment - ${account.name}`,
+      amount: diff > 0 ? diff : diff, // positive diff = expense-like (balance increased = money came in = negative amount)
+      categoryId: 'other',
+      accountId,
+      mark: 'adjustment',
+    };
+    // Actually: if balance goes up, that means money came in (income = negative amount)
+    // If balance goes down, money went out (expense = positive amount)
+    adjTx.amount = -diff; // negative diff means balance went down = expense (positive), positive diff = income (negative)
+    setTransactions(prev => [adjTx, ...prev]);
+    setAccounts(prev => prev.map(a => a.id === accountId ? { ...a, balance: newBalance } : a));
+  }, [accounts]);
+
   const value = useMemo(() => ({
-    transactions, categories, accounts, addTransaction, addTransactions,
-    updateTransaction, deleteTransaction, splitTransaction, updateCategoryLimit,
-    getCategoryById, getParentCategories, getChildCategories, getAccountById, addCategory,
-  }), [transactions, categories, accounts, addTransaction, addTransactions,
-    updateTransaction, deleteTransaction, splitTransaction, updateCategoryLimit,
-    getCategoryById, getParentCategories, getChildCategories, getAccountById, addCategory]);
+    transactions, categories, accounts, monthlyNotes,
+    addTransaction, addTransactions, updateTransaction, deleteTransaction,
+    splitTransaction, updateCategoryLimit, getCategoryById, getParentCategories,
+    getChildCategories, getAccountById, addCategory, toggleStar,
+    linkTransfer, unlinkTransfer, suggestTransferPairs,
+    addMonthlyNote, updateMonthlyNote, deleteMonthlyNote, updateAccountBalance,
+  }), [transactions, categories, accounts, monthlyNotes,
+    addTransaction, addTransactions, updateTransaction, deleteTransaction,
+    splitTransaction, updateCategoryLimit, getCategoryById, getParentCategories,
+    getChildCategories, getAccountById, addCategory, toggleStar,
+    linkTransfer, unlinkTransfer, suggestTransferPairs,
+    addMonthlyNote, updateMonthlyNote, deleteMonthlyNote, updateAccountBalance]);
 
   return <ExpenseContext.Provider value={value}>{children}</ExpenseContext.Provider>;
 }

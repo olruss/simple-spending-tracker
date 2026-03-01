@@ -25,6 +25,7 @@ export default function TransactionEditDialog({ transaction, open, onOpenChange 
     accountId: transaction.accountId || '',
     note: transaction.note || '',
     mark: transaction.mark || '',
+    receiptUrl: transaction.receiptUrl || '',
   });
 
   const handleSave = () => {
@@ -41,6 +42,7 @@ export default function TransactionEditDialog({ transaction, open, onOpenChange 
       accountId: form.accountId || undefined,
       note: form.note.trim() || undefined,
       mark: (form.mark as TransactionMark) || undefined,
+      receiptUrl: form.receiptUrl.trim() || undefined,
     });
     toast.success('Transaction updated');
     onOpenChange(false);
@@ -91,31 +93,37 @@ export default function TransactionEditDialog({ transaction, open, onOpenChange 
               ))}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Account</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.accountId}
-              onChange={e => setForm(p => ({ ...p, accountId: e.target.value }))}
-            >
-              <option value="">None</option>
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>{a.name} ··{a.lastFour} ({a.type})</option>
-              ))}
-            </select>
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Account</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.accountId}
+                onChange={e => setForm(p => ({ ...p, accountId: e.target.value }))}
+              >
+                <option value="">None</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.name} ··{a.lastFour} ({a.type})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">Mark</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={form.mark}
+                onChange={e => setForm(p => ({ ...p, mark: e.target.value }))}
+              >
+                <option value="">None</option>
+                {MARKS.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Mark</Label>
-            <select
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={form.mark}
-              onChange={e => setForm(p => ({ ...p, mark: e.target.value }))}
-            >
-              <option value="">None</option>
-              {MARKS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+            <Label className="text-xs">Receipt URL</Label>
+            <Input value={form.receiptUrl} onChange={e => setForm(p => ({ ...p, receiptUrl: e.target.value }))} placeholder="https://... or paste image URL" className="h-9 text-sm" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Note</Label>

@@ -1,14 +1,13 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, Upload } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, List, Wallet } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/transactions', label: 'Transactions', icon: List },
+  { to: '/accounts', label: 'Accounts', icon: Wallet },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-sm">

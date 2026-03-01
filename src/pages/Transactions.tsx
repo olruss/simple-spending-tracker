@@ -73,7 +73,7 @@ function AddTransactionDialog({ categories, accounts, onAdd }: {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10), description: '', amount: '',
-    isIncome: false, categoryId: '', accountId: '', note: '', mark: '',
+    isIncome: false, categoryId: '', accountId: '', note: '', mark: '', receiptUrl: '',
   });
 
   const handleSave = () => {
@@ -90,9 +90,10 @@ function AddTransactionDialog({ categories, accounts, onAdd }: {
       accountId: form.accountId || undefined,
       note: form.note.trim() || undefined,
       mark: (form.mark as TransactionMark) || undefined,
+      receiptUrl: form.receiptUrl.trim() || undefined,
     });
     toast.success('Transaction added');
-    setForm({ date: new Date().toISOString().slice(0, 10), description: '', amount: '', isIncome: false, categoryId: '', accountId: '', note: '', mark: '' });
+    setForm({ date: new Date().toISOString().slice(0, 10), description: '', amount: '', isIncome: false, categoryId: '', accountId: '', note: '', mark: '', receiptUrl: '' });
     setOpen(false);
   };
 
